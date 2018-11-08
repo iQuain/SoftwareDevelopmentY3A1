@@ -36,16 +36,17 @@ import org.jfree.data.general.DefaultPieDataset;
 
 public class PlayStore {
 
-
 	static ChartPanel piePanel;
-	static ChartPanel barPanel;
+	static ChartPanel installPanel;
+	static ChartPanel pricePanel;
 	static boolean validated = false;
-	
+
 	public static void main(String[] args) throws IOException {
 
 		DefaultPieDataset pie = getPaid();
-		JFreeChart pieChart = ChartFactory.createPieChart("Free Apps", pie, true, true, true);
-		PieSectionLabelGenerator labelGenerator = new StandardPieSectionLabelGenerator("{0}: {1}%", new DecimalFormat("0"), new DecimalFormat("0"));
+		JFreeChart pieChart = ChartFactory.createPieChart("Free vs Paid Apps", pie, true, true, true);
+		PieSectionLabelGenerator labelGenerator = new StandardPieSectionLabelGenerator("{0}: {1}%",
+				new DecimalFormat("0"), new DecimalFormat("0"));
 		PiePlot plot1 = (PiePlot) pieChart.getPlot();
 		plot1.setLabelGenerator(labelGenerator);
 		System.out.println("Test");
@@ -55,18 +56,29 @@ public class PlayStore {
 		} catch (Exception e) {
 			System.out.println("Problemo");
 		}
-		
-		DefaultCategoryDataset bar = getContentRating();
 
-		JFreeChart barChart = ChartFactory.createBarChart3D("Content Ratings", "Rating", "Number", 
-				bar, PlotOrientation.VERTICAL, true, true, false);
+		DefaultCategoryDataset installBar = getInstallInfo();
+
+		JFreeChart installChart = ChartFactory.createBarChart3D("Installs Comparisons", "Rating", "Number", installBar,
+				PlotOrientation.VERTICAL, true, true, false);
 		try {
-			barPanel = new ChartPanel(barChart);
-			System.out.println("Bar Chart Created");
+			installPanel = new ChartPanel(installChart);
+			System.out.println("Install Chart Created");
 		} catch (Exception e) {
-			System.out.println("Problemo");
+			System.out.println(e);
 		}
-		
+
+		DefaultCategoryDataset priceBar = getPriceInfo();
+
+		JFreeChart priceChart = ChartFactory.createBarChart3D("Price Comparisons", "Rating", "Number", priceBar,
+				PlotOrientation.VERTICAL, true, true, false);
+		try {
+			pricePanel = new ChartPanel(priceChart);
+			System.out.println("Price Chart Created");
+		} catch (Exception e) {
+			System.out.println(e);
+		}
+
 		new MainFrame();
 	} // End of main
 
@@ -83,7 +95,7 @@ public class PlayStore {
 			String line;
 			int i = 0;
 			while ((line = br.readLine()) != null) {
-				if(i == 0) {
+				if (i == 0) {
 					i++;
 				} else {
 					total++;
@@ -96,8 +108,8 @@ public class PlayStore {
 						throw new RuntimeException("Unexpected Value in Type List");
 					}
 					pie = new DefaultPieDataset();
-					pie.setValue("Free", (double)free/total*(100/1));
-					pie.setValue("Paid", (double)paid/total*(100/1));
+					pie.setValue("Free", (double) free / total * (100 / 1));
+					pie.setValue("Paid", (double) paid / total * (100 / 1));
 				}
 			}
 
@@ -107,112 +119,207 @@ public class PlayStore {
 
 		return pie;
 	} // End of getPaid
-	
-	public static DefaultCategoryDataset getContentRating() {
-		int adultsOnly18 = 0;
-		int everyone = 0;
-		int everyone10 = 0;
-		int mature17 = 0;
-		int teen = 0;
-		int unrated = 0;
-		
+
+	public static DefaultCategoryDataset getInstallInfo() {
+
+		int maxReviews = 0;
+		int minReviews = 5000;
+		int avgReviews = 0;
+		int count = 0;
+
+		String maxReviewsName = "";
+		String minReviewsName = "";
+
 		BufferedReader br;
 		DefaultCategoryDataset barData = null;
-		
+
 		try {
 			br = new BufferedReader(new FileReader("data\\googleplaystore.csv"));
 			String line;
+			int i = 0;
 			while ((line = br.readLine()) != null) {
 				String[] linearray = line.split(",");
-				if (linearray[8].equals("Adults only 18")) {
-					adultsOnly18++;
-				} else if (linearray[8].equals("Everyone 10")) {
-					everyone10++;
-				} else if (linearray[8].equals("Everyone")) {
-					everyone++;
-				} else if (linearray[8].equals("Mature 17")) {
-					mature17++;
-				} else if (linearray[8].equals("Teen")) {
-					teen++;
-				} else if (linearray[8].equals("Unrated")) {
-					unrated++;
+
+				if (i == 0) {
+					i++;
+				} else {
+					if (Integer.parseInt(linearray[3]) > maxReviews) {
+						maxReviews = Integer.parseInt(linearray[3]);
+						maxReviewsName = linearray[0];
+						avgReviews += Integer.parseInt(linearray[3]);
+						count++;
+					} else if (Integer.parseInt(linearray[3]) < minReviews) {
+						minReviews = Integer.parseInt(linearray[3]);
+						minReviewsName = linearray[0];
+						avgReviews += Integer.parseInt(linearray[3]);
+						count++;
+					} else {
+						avgReviews += Integer.parseInt(linearray[3]);
+						count++;
+					}
 				}
 			}
+
+			avgReviews = avgReviews / count;
+
 			barData = new DefaultCategoryDataset();
-			barData.setValue(adultsOnly18, "Content Rating", "Adults Only");
-			barData.setValue(everyone10, "Content Rating", "Everyone 10");
-			barData.setValue(everyone, "Content Rating", "Everyone");
-			barData.setValue(mature17, "Content Rating", "Mature 17");
-			barData.setValue(teen, "Content Rating", "Teen");
-			barData.setValue(unrated, "Content Rating", "Unrated");
-			
+			barData.setValue(minReviews, "Installs", "Minimum: " + minReviewsName);
+			barData.setValue(maxReviews, "Installs", "Maximum: " + maxReviewsName);
+			barData.setValue(avgReviews, "Installs", "Average");
+
 		} catch (Exception e) {
-			System.out.println("Problemo2");
+			System.out.println(e);
 		}
 		return barData;
-	} // End of getContentRating
-	
+	} // End of getInstallInfo
+
+	public static DefaultCategoryDataset getPriceInfo() {
+
+		double maxPrice = 0;
+		double minPrice = 10;
+		double avgPrice = 0;
+
+		int count = 0;
+
+		String maxPriceName = "";
+		String minPriceName = "";
+
+		BufferedReader br;
+		DefaultCategoryDataset barData = null;
+
+		try {
+			br = new BufferedReader(new FileReader("data\\googleplaystore.csv"));
+			String line;
+			int i = 0;
+			while ((line = br.readLine()) != null) {
+				String[] linearray = line.split(",");
+
+				if (i == 0) {
+					i++;
+				} else {
+					if (Double.parseDouble(linearray[7]) > maxPrice) {
+						maxPrice = Double.parseDouble(linearray[7]);
+						maxPriceName = linearray[0];
+						avgPrice += Double.parseDouble(linearray[7]);
+						count++;
+					} else if (Double.parseDouble(linearray[7]) < minPrice) {
+						minPrice = Double.parseDouble(linearray[7]);
+						minPriceName = linearray[0];
+						avgPrice += Double.parseDouble(linearray[7]);
+						count++;
+					} else {
+						avgPrice += Double.parseDouble(linearray[7]);
+						count++;
+					}
+				}
+			}
+
+			avgPrice = avgPrice / count;
+
+			barData = new DefaultCategoryDataset();
+			barData.setValue(minPrice, "Price", "Minimum: " + minPriceName);
+			barData.setValue(maxPrice, "Price", "Maximum: " + maxPriceName);
+			barData.setValue(avgPrice, "Price", "Average");
+
+		} catch (Exception e) {
+			System.out.println(e);
+		}
+		return barData;
+
+	} // End of getPriceInfo
+
 	public static class MainFrame extends JFrame implements ActionListener {
 		JFrame background = new JFrame("Charting Assignment");
-		
+
 		JPanel display = new JPanel();
 		JPanel navbar = new JPanel();
-		
+
 		JRadioButton fvp = new JRadioButton("Free vs Paid Apps");
-		JRadioButton types = new JRadioButton("App Content Types");
-		JLabel pic = new JLabel();
-		
+		JRadioButton install = new JRadioButton("App Install Info");
+		JRadioButton price = new JRadioButton("App Price Info");
+
 		public MainFrame() throws IOException {
 			super();
 			background.setLayout(new BorderLayout());
 			background.add(navbar, BorderLayout.NORTH);
-			
+
 			navbar.setLayout(new FlowLayout());
 			navbar.add(fvp);
-			navbar.add(types);
+			navbar.add(install);
+			navbar.add(price);
 			fvp.setSelected(true);
-			
+
 			background.add(piePanel, BorderLayout.CENTER);
-			display.add(pic);
-			
-			background.setSize(800,600);
+
+			background.setSize(800, 600);
 			background.setVisible(true);
-			
+
 			fvp.addActionListener(this);
-			types.addActionListener(this);
+			install.addActionListener(this);
+			price.addActionListener(this);
 		} // End of MainFrame method
-		
+
 		@Override
 		public void actionPerformed(ActionEvent e) {
-			if(e.getSource().equals(fvp)) {
-				if(validated != true) {
+			if (e.getSource().equals(fvp)) {
+				if (validated != true) {
 					background.invalidate();
-					background.remove(barPanel);
-					background.add(barPanel, BorderLayout.CENTER);
+					background.remove(installPanel);
+					background.remove(pricePanel);
+					background.add(installPanel, BorderLayout.CENTER);
 					background.revalidate();
-					types.setSelected(false);
+					install.setSelected(false);
+					price.setSelected(false);
 					validated = true;
 				} else {
 					background.invalidate();
-					background.remove(barPanel);
+					background.remove(installPanel);
+					background.remove(pricePanel);
 					background.add(piePanel, BorderLayout.CENTER);
+					background.revalidate();
 					background.repaint();
-					types.setSelected(false);
+					install.setSelected(false);
+					price.setSelected(false);
 				}
-			} else if(e.getSource().equals(types)) {
-				if(validated != true) {
+			} else if (e.getSource().equals(install)) {
+				if (validated != true) {
 					background.invalidate();
 					background.remove(piePanel);
-					background.add(barPanel, BorderLayout.CENTER);
+					background.remove(pricePanel);
+					background.add(installPanel, BorderLayout.CENTER);
 					background.revalidate();
 					fvp.setSelected(false);
+					price.setSelected(false);
 					validated = true;
 				} else {
 					background.invalidate();
 					background.remove(piePanel);
-					background.add(barPanel, BorderLayout.CENTER);
+					background.remove(pricePanel);
+					background.add(installPanel, BorderLayout.CENTER);
+					background.revalidate();
 					background.repaint();
 					fvp.setSelected(false);
+					price.setSelected(false);
+				}
+			} else if (e.getSource().equals(price)) {
+				if (validated != true) {
+					background.invalidate();
+					background.remove(piePanel);
+					background.remove(installPanel);
+					background.add(pricePanel, BorderLayout.CENTER);
+					background.revalidate();
+					fvp.setSelected(false);
+					install.setSelected(false);
+					validated = true;
+				} else {
+					background.invalidate();
+					background.remove(piePanel);
+					background.remove(installPanel);
+					background.add(pricePanel, BorderLayout.CENTER);
+					background.revalidate();
+					background.repaint();
+					fvp.setSelected(false);
+					install.setSelected(false);
 				}
 			}
 		}
